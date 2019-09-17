@@ -62,5 +62,5 @@ type RequestParams struct {
 	Order   string
 	Limit   int
 	Offset  int
-	Args    map[string]interface{}
+	Args    []interface{}
 }

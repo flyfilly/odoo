@@ -33,6 +33,10 @@ func (connection *Connection) Fetch(requestParams *RequestParams) ([]byte, error
 			"context": connection.Session.Context,
 		}
 
+		if requestParams.Method == MethodCreate || requestParams.Method == MethodUpdate {
+			return kwargs
+		}
+
 		if 0 < len(requestParams.Fields) {
 			kwargs["fields"] = requestParams.Fields
 		} else {
@@ -128,6 +132,7 @@ func (connection *Connection) unAuthenticatedRequest(url, method string, jsonVal
 }
 
 func (connection *Connection) request(url, method string, jsonValue []byte, headers map[string]string) (*http.Response, error) {
+	fmt.Println(string(jsonValue))
 	req, _ := http.NewRequest(method, url, bytes.NewBuffer(jsonValue))
 
 	req.Header.Add("Content-Type", "application/json")
