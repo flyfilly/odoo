@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,7 +27,7 @@ func Init(protocol, host string, port int, db, username, password string) Connec
 }
 
 // Fetch sends requests that does not apply to a specific record or set of records.
-func (connection *Connection) Fetch(requestParams *RequestParams) []byte {
+func (connection *Connection) Fetch(requestParams *RequestParams) ([]byte, error) {
 	buildKwargs := func() map[string]interface{} {
 		kwargs := map[string]interface{}{
 			"context": connection.Session.Context,
@@ -110,12 +109,12 @@ func (connection *Connection) Fetch(requestParams *RequestParams) []byte {
 	res, error := connection.authenticatedRequest(connection.URL, http.MethodPost, jsonParams)
 
 	if error != nil {
-		log.Fatalln(error)
+		return nil, error
 	}
 
 	defer res.Body.Close()
 	data, _ := ioutil.ReadAll(res.Body)
-	return data
+	return data, nil
 }
 
 func (connection *Connection) authenticatedRequest(url, method string, jsonValue []byte) (*http.Response, error) {
@@ -129,11 +128,8 @@ func (connection *Connection) unAuthenticatedRequest(url, method string, jsonVal
 }
 
 func (connection *Connection) request(url, method string, jsonValue []byte, headers map[string]string) (*http.Response, error) {
-	req, error := http.NewRequest(method, url, bytes.NewBuffer(jsonValue))
+	req, _ := http.NewRequest(method, url, bytes.NewBuffer(jsonValue))
 
-	if error != nil {
-		log.Fatalln(error)
-	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Length", string(jsonValue))
@@ -158,20 +154,17 @@ func (connection *Connection) connect() {
 		},
 	})
 
-	if res, error := connection.unAuthenticatedRequest(url, http.MethodPost, jsonValue); error == nil {
-		defer res.Body.Close()
-		data, _ := ioutil.ReadAll(res.Body)
-		json.Unmarshal(data, &authResult)
-		cookie := res.Header.Get("set-cookie")
-		connection.Session = authResult.Result
-		connection.Session.SessionString = strings.Split(cookie, ";")[0]
-		connection.URL = fmt.Sprintf(
-			"%v://%v:%v/web/dataset/call_kw",
-			connection.Protocol,
-			connection.Host,
-			connection.Port,
-		)
-	} else {
-		log.Fatalln(error)
-	}
+	res, _ := connection.unAuthenticatedRequest(url, http.MethodPost, jsonValue)
+	defer res.Body.Close()
+	data, _ := ioutil.ReadAll(res.Body)
+	json.Unmarshal(data, &authResult)
+	cookie := res.Header.Get("set-cookie")
+	connection.Session = authResult.Result
+	connection.Session.SessionString = strings.Split(cookie, ";")[0]
+	connection.URL = fmt.Sprintf(
+		"%v://%v:%v/web/dataset/call_kw",
+		connection.Protocol,
+		connection.Host,
+		connection.Port,
+	)
 }
